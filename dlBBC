@@ -1,0 +1,30 @@
+#!/bin/bash
+# Download bbc live playlists
+#
+# (c) Dr. Rodney Padgett (2015)
+# See LICENCE file
+
+get_mp3() {
+	# BBC mp3 streams
+	lynx -dump http://www.listenlive.eu/uk.html | \
+	grep -E 'bbcradio[1234].m3u|bbc6music.m3u' | \
+	awk '{print $2 }' | \
+	wget -i -
+}
+
+get_aac() {
+	# BBC AAC streams
+	lynx -dump "http://www.radiofeeds.co.uk/other.asp" | \
+	grep sbr_high | \
+	awk '$2 ~ /radio_one|radio_two|radio_three|radio_fourfm|6music/ {print $2 }' |\
+	wget -i -
+}
+
+case "$1" in
+	--mp3) get_mp3 ;;
+	--aac) get_aac ;;
+	*) get_aac;;
+esac
+
+echo "To play these lists:"
+echo "ffplay -nodisp <file>"

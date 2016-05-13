@@ -1,0 +1,39 @@
+Simple command line bbc live radio player
+-----------------------------------------
+
+Requires
+--------
+bash
+ffmpeg (ffplay)
+lynx
+wget
+awk
+
+Install
+-------
+Read through the two bash script files and decide if this does what you want it to! Please note it is only designed as a live radio player.
+Copy the two scripts dlBBC and rplay.sh to /usr/local/bin or edit scripts and adjust paths to suit.
+
+Usage
+-----
+rplay.sh <preset>
+
+On the initial run, the radio playlists are downloaded. By default, the player will attempt to play the high quality 320kb/s aac streams from BBC.
+Tested on Arch linux and Arch Linux|ARM (on a raspberry PI 2) only.
+
+References and acknowledgements
+-------------------------------
+
+Arch Linux        https://www.archlinux.org/
+Arch Linux|ARM    https://archlinuxarm.org/
+ffmpeg            https://ffmpeg.org/
+
+The script dlBBC downloads the aac stream playlists from:
+http://www.radiofeeds.co.uk/other.asp
+
+dlBBC can also download mp3 playlists from (not by default):
+http://www.listenlive.eu/uk.html
+
+LICENCE
+-------
+See file LICENCE for details.
