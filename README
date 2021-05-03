@@ -8,17 +8,19 @@ ffmpeg (ffplay)
 lynx
 wget
 awk
+www.radiofeeds.co.uk
 
 Install
 -------
-Read through the two bash script files and decide if this does what you want it to! Please note it is only designed as a live radio player.
-Copy the two scripts dlBBC and rplay.sh to /usr/local/bin or edit scripts and adjust paths to suit.
+Read through the bash script files and decide if this does what you want it to! Please note it is only designed as a live radio player.
+Copy the scripts rplay.sh to /usr/local/bin or edit scripts and adjust paths to suit.
 
 Usage
 -----
 rplay.sh <preset>
 
-On the initial run, the radio playlists are downloaded. By default, the player will attempt to play the high quality 320kb/s aac streams from BBC.
+Live radio feed URL is downloaded from http://www.radiofeeds.co.uk
+By default, the player will attempt to play the high quality 320kb/s aac streams from BBC.
 Tested on Arch linux and Arch Linux|ARM (on a raspberry PI 2) only.
 
 References and acknowledgements
@@ -27,12 +29,10 @@ References and acknowledgements
 Arch Linux        https://www.archlinux.org/
 Arch Linux|ARM    https://archlinuxarm.org/
 ffmpeg            https://ffmpeg.org/
+Live UK radio:    http://www.radiofeeds.co.uk
 
-The script dlBBC downloads the aac stream playlists from:
-http://www.radiofeeds.co.uk/other.asp
-
-dlBBC can also download mp3 playlists from (not by default):
-http://www.listenlive.eu/uk.html
+The script downloads the bbc and classicfm stream playlists from:
+http://www.radiofeeds.co.uk
 
 LICENCE
 -------
