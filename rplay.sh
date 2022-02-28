@@ -1,4 +1,5 @@
 #!/bin/bash
+# Copyright Rodney Padgett - see License for details
 # ChangeLog:
 #  28-08-2020  Add --user-agent="" to wget - classicFM server rejects requests from wget
 #  19-12-2020  Change the pid control and wait for radio stop.
