@@ -10,62 +10,36 @@
 #              Change 'format' specifier for stream from playlist type to compression type; this is how radiofeeds urls are organised
 #  13-02-2022  Add mpd_player(): waits for mpd to start streaming until told to stop
 #              Use bash builtin wait instead of while loops
+#  20-08-2022  ffplay now plays hls .m3u8 directly - add in m3u8 urls directly. Stop using radiofeeds - site not stable.
+#  07-01-2023  Add FILTER_PRESET intended for equalisation purposes
 
 USER=$(id -u -n)
 RADIO_DIR="/tmp/radio-$USER"
+
+# Apply audio filters if -f option is given
+# This must be a valid ffmpeg audio filter chain (do not prepend -af or -f:a)
+FILTER_PRESET="volume=-10dB,equalizer=f=50:width_type=h:width=50:g=10"
 
 # Radio presets:
 # reference format stream description
 #
 #  reference: rplay preset name (used to select the preset)
-#  format: 
-#     hls:        bbc hls streams
-#     mp3 or aac: m3u or pls playlists using either mp3 or aac compression
-#     url:        play directly from url; stream specifies a url
+#  format:
+#     url:        play directly from url; stream specifies a url to a stream or playlist
 #     mpd:        stream is from mpd: wait for playback to start
 #  stream:
 #     format is url: stream specifies the url of the stream.
-#     format is hls, mp3 or aac: search term to identify the required stream on http://www.radiofeeds.co.uk/
-#                                search term should uniquely identify the required stream URL: first match will be returned.
+#     format is mpd: stream specifies: <transport>:<server>:<port>; at present only transport=http is supported.
 #  description: text description of preset (list command).
-PRESET=( "bbc1" "hls" "radio_one" "BBC Radio one" \
-         "bbc2" "hls" "radio_two" "BBC Radio two" \
-         "bbc3" "hls" "radio_three" "BBC Radio three" \
-         "bbc4" "hls" "radio_four" "BBC Radio four" \
-         "bbc6" "hls" "6music" "BBC Radio 6music" \
-         "cfm" "mp3" "ClassicFMMP3" "ClassicFM" \
-         "mpd" "mpd" "http:192.168.1.2:8090" "mpd server (mp3)" \
-         "ice" "url" "http://192.168.1.2:8095/ice.ogg" "Alsa stream (flac)" \
+BBC_SERVER="http://a.files.bbci.co.uk/media/live/manifesto/audio/simulcast/hls/uk/sbr_high/ak"
+PRESET=( "bbc1" "url" "$BBC_SERVER/bbc_radio_one.m3u8" "BBC Radio one" \
+         "bbc2" "url" "$BBC_SERVER/bbc_radio_two.m3u8" "BBC Radio two" \
+         "bbc3" "url" "$BBC_SERVER/bbc_radio_three.m3u8" "BBC Radio three" \
+         "bbc4" "url" "$BBC_SERVER/bbc_radio_fourfm.m3u8" "BBC Radio four" \
+         "bbc6" "url" "$BBC_SERVER/bbc_6music.m3u8" "BBC Radio 6music" \
+         "cfm" "url" "http://icecast.thisisdax.com/ClassicFMMP3" "ClassicFM" \
+         "mpd" "mpd" "http:192.168.10.2:8090" "mpd server (mp3)" \
        )
-
-# BBC HLS stream bit rate: sbr_high - 320kb/s; sbr_med - 128kb/s; sbr_low - 96kb/s; sbr_vlow - 48kb/s
-HLS_SBR="sbr_high"
-
-# Radiofeeds url: as of February 2022 URL paths are:
-#                 mp3.asp     -  mp3 streams
-#                 aac.asp     -  aac streams
-#                 other.asp   -  bbc hls streams
-RADIO_FEEDS_URL="http://www.radiofeeds.co.uk"
-
-# Call with $1: URL search term; $2: stream format
-# Expects playlist format m3u or pls
-get_url() {
-   lynx -dump "$RADIO_FEEDS_URL/$2.asp" | \
-      grep $1 | \
-      awk '{print $2 }' | \
-      wget --quiet --user-agent="" -i - -O - | \
-      grep http | sed -e 's/File1=//' -e 's/\r//'
-}
-
-# BBC hls streams
-# Call with $1: URL search term; $2: sbr_high - 320kb/s; sbr_med - 128kb/s; sbr_low - 96kb/s; sbr_vlow - 48kb/s
-get_url_hls() {
-   lynx -dump "$RADIO_FEEDS_URL/other.asp" | \
-      grep $1 | grep $2 | \
-      awk '{print $2 }' | \
-      wget --quiet --user-agent="" -i - -O - | \
-      grep http
-}
 
 list_presets() {
    local -i r=0 f=1 s=2 d=3 n=${#PRESET[@]}
@@ -77,12 +51,16 @@ list_presets() {
 
 show_help() {
    echo "Play radio streams"
-   echo "Requires ffmpeg (ffplay), lynx (text web browser), wget and mpc (mpd streaming control)"
+   echo "Requires ffmpeg (ffplay) and mpc (mpd streaming control)"
    echo "Usage:"
    echo "   $0 stop  - stops player"
    echo "   $0 list  - list presets"
    echo "   $0 status  - show status"
-   echo "   $0 <preset>  - play <preset>"
+   echo "   $0 [options] <preset>  - play <preset>"
+   echo "Options:"
+   echo "   -f apply audio filter chain defined in FILTER_PRESET"
+   echo "      Current definition is:"
+   [ -z "$FILTER_PRESET" ] && "Undefined." || echo "      $FILTER_PRESET"
    echo "Presets:"
    echo "<preset> description"
    list_presets
@@ -97,14 +75,14 @@ setup() {
 stop_player() {
    [ ! -f "$RADIO_DIR/pid" ] && return 1
    PID=$(cat "$RADIO_DIR/pid")
-   [ ! $PID -gt 0 ] && return 0
+   [ ! "$PID" -gt 0 ] && return 0
 
-   kill $PID
-   [ $? -gt 0 ] && return 2
+   kill "$PID"
+   [ "$?" -gt 0 ] && return 2
 
    ((i=0))
    WAIT_STOP=$(cat "$RADIO_DIR/pid")
-   while [ $WAIT_STOP -gt 0 ]; do
+   while [ "$WAIT_STOP" -gt 0 ]; do
       sleep 1
       WAIT_STOP=$(cat "$RADIO_DIR/pid")
       ((i++))
@@ -114,21 +92,29 @@ stop_player() {
    return 0
 }
 
+# start_player <stream> <ffmpeg audio filter specification>
+# <ffmpeg audio filter specification> must be a valid ffmpeg audio filter chain.
 start_player() {
    STOP_SIG=0
    trap 'STOP_SIG=1' SIGINT SIGTERM
    [ ! -x /usr/bin/ffplay ] && return 1
    [ ! -w "$RADIO_DIR/pid" ] && return 1
-   
-   /usr/bin/ffplay -autoexit -hide_banner -loglevel quiet -nodisp "$1" &
-   FFPLAY_PID=$!
-   echo $FFPLAY_PID > "$RADIO_DIR/pid"
+   if [ -z "$2" ]; then
+      FFPLAY_ARGS="-autoexit -hide_banner -loglevel quiet -nodisp"
+   else
+      echo "start_player(): applying filters: $2"
+      FFPLAY_ARGS="-autoexit -hide_banner -loglevel quiet -nodisp -af $2"
+   fi
 
-   wait $FFPLAY_PID
-   FFPLAY_EXIT_CODE=$?
+   /usr/bin/ffplay $FFPLAY_ARGS "$1" &
+   FFPLAY_PID="$!"
+   echo "$FFPLAY_PID" > "$RADIO_DIR/pid"
+
+   wait "$FFPLAY_PID"
+   FFPLAY_EXIT_CODE="$?"
    echo "-1" > "$RADIO_DIR/pid"
-   if [ $FFPLAY_EXIT_CODE -gt 0 ]; then # ffplay received SIGTERM (123) or rplay recieved a trapped signal
-      [ $STOP_SIG -gt 0 ] && kill $FFPLAY_PID
+   if [ "$FFPLAY_EXIT_CODE" -gt 0 ]; then # ffplay received SIGTERM (123) or rplay recieved a trapped signal
+      [ "$STOP_SIG" -gt 0 ] && kill "$FFPLAY_PID"
       return 1
    fi
    return 0
@@ -140,11 +126,11 @@ show_status() {
       return 1
    fi
    PID=$(cat "$RADIO_DIR/pid")
-   if [ ! $PID -gt 0 ]; then
+   if [ ! "$PID" -gt 0 ]; then
       echo "-1 Stopped"
       return -1
    fi
-   PLAYING=$(ps -q $PID -o args= | awk '{ print $NF }')
+   PLAYING=$(ps -q "$PID" -o args= | awk '{ print $NF }')
    if [ -z "$PLAYING" ]; then
       echo "-2 Playing:Unknown"
       return -2
@@ -153,36 +139,37 @@ show_status() {
    return 0
 }
 
+# mpd_player <host> <stream> <filter>
 mpd_player() {
    STOP_SIG=0
    trap 'STOP_SIG=1' SIGINT SIGTERM
-   
-   while [ $STOP_SIG -eq 0 ]; do
+
+   while [ "$STOP_SIG" -eq 0 ]; do
       MPC_PID=-1
       MPC_EXIT_CODE=-1
       RPLAY_MPD_STATUS=$(mpc status -h "$1")
-      if [ $? -ne 0 ]; then
+      if [ "$?" -ne 0 ]; then
          echo "mpd server $1 not found."
          exit 1
       fi
-      echo $RPLAY_MPD_STATUS | grep -e "paused" -e "playing" >/dev/null
-      if [ $? -ne 0 ]; then   # Wait for playback to start
+      echo "$RPLAY_MPD_STATUS" | grep -e "paused" -e "playing" >/dev/null
+      if [ "$?" -ne 0 ]; then   # Wait for playback to start
          echo "Waiting for mpd..."
          mpc idle -h "$1" > /dev/null &
-         MPC_PID=$!
-         echo $MPC_PID > "$RADIO_DIR/pid"
-         wait $MPC_PID
-         MPC_EXIT_CODE=$?
+         MPC_PID="$!"
+         echo "$MPC_PID" > "$RADIO_DIR/pid"
+         wait "$MPC_PID"
+         MPC_EXIT_CODE="$?"
          echo "-1" > "$RADIO_DIR/pid"
       fi
-      if [ $MPC_EXIT_CODE -gt 0 ]; then   # mpc received SIGTERM (143) or rplay recieved a trapped signal
-         [ $STOP_SIG -gt 0 ] && kill $MPC_PID
-         break 
+      if [ "$MPC_EXIT_CODE" -gt 0 ]; then   # mpc received SIGTERM (143) or rplay recieved a trapped signal
+         [ "$STOP_SIG" -gt 0 ] && kill "$MPC_PID"
+         break
       fi
 
       echo "Playing..."
-      start_player "$2"
-      [ $? -gt 0 ] && break
+      start_player "$2" "$3"
+      [ "$?" -gt 0 ] && break
    done
    exit 0
 }
@@ -192,12 +179,20 @@ mpd_player() {
 cd "$RADIO_DIR"
 
 # Built-in commands
+DO_FILTER=""
 case "$1" in
    help) show_help; exit 0 ;;
    list) list_presets; exit 0 ;;
    stop) stop_player; exit 0 ;;
    status) show_status; exit 0 ;;
+   -f) DO_FILTER="$FILTER_PRESET"; shift ;;
 esac
+
+if [ -z "$1" ]; then
+   echo "No preset specified"
+   show_help
+   exit 1
+fi
 
 STOP_SIG=0
 trap 'STOP_SIG=1' SIGINT SIGTERM
@@ -208,11 +203,10 @@ declare -i r=0 f=1 s=2 d=3 n=${#PRESET[@]}
 while [ $r -lt $n ]; do
    if [ "$1" == "${PRESET[$r]}" ]; then
       case "${PRESET[$f]}" in
-         hls) URL=$(get_url_hls "${PRESET[$s]}" "$HLS_SBR") ;;
          url) URL="${PRESET[$s]}" ;;
          mpd) SRV=$(echo "${PRESET[$s]}" | cut -d':' -f2);
               URL=$(echo "${PRESET[$s]}" | awk -F: '{ printf "%s://%s:%s\n", $1, $2, $3 }') ;;
-         *) URL=$(get_url "${PRESET[$s]}" ${PRESET[$f]}) ;;
+         *) URL="" ;;
       esac
       break
    fi
@@ -220,21 +214,22 @@ while [ $r -lt $n ]; do
 done
 
 if [ -z "$URL" ]; then
+   echo "Unknown preset: $1"
    show_help
-   exit 0
+   exit 1
 fi
 
 stop_player
-if [ $? -ne 0 ]; then
+if [ "$?" -ne 0 ]; then
    echo "Stop player failed!"
    exit 1
 fi
 
 if [ ! -z "$SRV" ]; then
-   mpd_player "$SRV" "$URL" &
+   mpd_player "$SRV" "$URL" "$DO_FILTER" &
 else
    echo "Playing $1: $URL"
-   start_player "$URL" &
+   start_player "$URL" "$DO_FILTER" &
 fi
 
 exit 0

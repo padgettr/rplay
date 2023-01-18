@@ -1,15 +1,14 @@
-Simple command line bbc live radio player
+Simple command line live radio player
 -----------------------------------------
+
+This script uses ffplay to play live radio streams, including streams from an mpd server. It was designed to be used on a raspberry pi embedded into an old WQ-T354 radio, via a web interface or ssh. For mpd streams it will wait for the stream to start, and will wait after the stream ends until a stop command is issued. This makes it suitable for autostarting from systemd or other init for a mpd stream player.
 
 Requires
 --------
 bash
 ffmpeg (ffplay)
-lynx
-wget
 awk
 mpc
-www.radiofeeds.co.uk
 
 Install
 -------
@@ -18,10 +17,9 @@ Copy the script rplay.sh to /usr/local/bin or edit and adjust the PRESET array a
 
 Usage
 -----
-rplay.sh <preset>
+Run rplay.sh help for usage and presets.
 
-Live radio feed URL is downloaded from http://www.radiofeeds.co.uk
-By default, the player will attempt to play the high quality 320kb/s aac streams from BBC.
+By default, the player will attempt to play the high quality 320kb/s aac streams from BBC. Edit the script to change the stream quality.
 Tested on Arch linux and Arch Linux|ARM (on a raspberry PI 2, 3 and 4) only.
 
 References and acknowledgements
@@ -30,10 +28,7 @@ References and acknowledgements
 Arch Linux        https://www.archlinux.org/
 Arch Linux|ARM    https://archlinuxarm.org/
 ffmpeg            https://ffmpeg.org/
-Live UK radio:    http://www.radiofeeds.co.uk
-
-The script downloads the bbc and classicfm stream playlists from:
-http://www.radiofeeds.co.uk
+mpd               https://www.musicpd.org/
 
 LICENCE
 -------
