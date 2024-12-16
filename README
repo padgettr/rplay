@@ -1,7 +1,8 @@
 Simple command line live radio player
 -----------------------------------------
 
-This script uses ffplay to play live radio streams, including streams from an mpd server. It was designed to be used on a raspberry pi embedded into an old WQ-T354 radio, via a web interface or ssh. For mpd streams it will wait for the stream to start, and will wait after the stream ends until a stop command is issued. This makes it suitable for autostarting from systemd or other init for a mpd stream player.
+This script uses ffplay to play live radio streams, including streams from an mpd server. It was designed to be used on a raspberry pi embedded into an old WQ-T354 radio, via a web interface. For mpd streams it will wait for the stream to start, and will wait after the stream ends until a stop command is issued. This makes it suitable for autostarting from systemd or other init for a mpd stream player.
+It can also detect (with optional curl and jq packages) local icecast streams and play (exec rplay.sh with no args to show detected stations).
 
 Requires
 --------
@@ -9,26 +10,31 @@ bash
 ffmpeg (ffplay)
 awk
 mpc
+curl (optional)
+jq (optional)
 
 Install
 -------
 Read through the bash script files and decide if this does what you want it to! Please note it is only designed as a live radio player.
-Copy the script rplay.sh to /usr/local/bin or edit and adjust the PRESET array as required.
+Copy the script rplay.sh to /usr/local/bin or edit and adjust the PRESET array and other setup parameters (e.g. ICECAST_SERVER_JSON_URL, FILTER_PRESET) as required.
 
 Usage
 -----
-Run rplay.sh help for usage and presets.
+Run rplay.sh help for usage, detected icecast streams and presets.
 
-By default, the player will attempt to play the high quality 320kb/s aac streams from BBC. Edit the script to change the stream quality.
-Tested on Arch linux and Arch Linux|ARM (on a raspberry PI 2, 3 and 4) only.
+For BBC streams (UK only), the player will attempt to play the high quality 320kb/s aac streams by default. Edit the script to change the stream quality.
+Tested on Arch linux, Void linux(arm) and Arch Linux|ARM (on a raspberry PI 2, 3 and 4) only.
+
 
 References and acknowledgements
 -------------------------------
 
 Arch Linux        https://www.archlinux.org/
+Void linux        https://voidlinux.org/
 Arch Linux|ARM    https://archlinuxarm.org/
 ffmpeg            https://ffmpeg.org/
 mpd               https://www.musicpd.org/
+icecast           https://icecast.org/
 
 LICENCE
 -------
